@@ -93,6 +93,205 @@ data:
               summary: "[ESCALACIÓN] API Fraud: memoria crítica sin resolver"
               description: "Memoria > 85% del límite durante 10+ minutos. Escalación a Slack por falta de acción tras Telegram."
 
+  fraud-api-security.rules.yml: |
+    groups:
+      - name: fraud-api-security-alerts
+        rules:
+          # --- Señales de infraestructura (kube-state-metrics / cAdvisor) ---
+
+          - alert: FraudApiCrashLoopBackOff
+            expr: |
+              kube_pod_container_status_waiting_reason{
+                namespace="mlops-production",
+                pod=~"mlops-fraud-api.*",
+                container="api-engine",
+                reason="CrashLoopBackOff"
+              } == 1
+            for: 1m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Posible ataque: API en CrashLoopBackOff"
+              description: "Un pod de mlops-fraud-api está en CrashLoopBackOff. Puede indicar explotación, payload malicioso o inestabilidad por abuso."
+
+          - alert: FraudApiCrashLoopBackOffEscalation
+            expr: |
+              kube_pod_container_status_waiting_reason{
+                namespace="mlops-production",
+                pod=~"mlops-fraud-api.*",
+                container="api-engine",
+                reason="CrashLoopBackOff"
+              } == 1
+            for: 5m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: slack
+            annotations:
+              summary: "[ESCALACIÓN] CrashLoopBackOff sin resolver"
+              description: "El CrashLoopBackOff persiste 5+ minutos tras el aviso de Telegram."
+
+          - alert: FraudApiRestartStorm
+            expr: |
+              increase(kube_pod_container_status_restarts_total{
+                namespace="mlops-production",
+                pod=~"mlops-fraud-api.*",
+                container="api-engine"
+              }[10m]) >= 3
+            for: 1m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Tormenta de reinicios en API Fraud"
+              description: "3+ reinicios del contenedor api-engine en 10 minutos. Posible ataque de denegación o exploit."
+
+          - alert: FraudApiCpuSaturationSuspectedAttack
+            expr: |
+              (
+                sum(rate(container_cpu_usage_seconds_total{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }[3m]))
+                /
+                sum(kube_pod_container_resource_limits{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine",
+                  resource="cpu"
+                })
+              ) > 0.90
+            for: 3m
+            labels:
+              severity: warning
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "CPU de API Fraud > 90% del límite"
+              description: "Saturación sostenida de CPU. Posible flood de peticiones o ataque de agotamiento de recursos."
+
+          - alert: FraudApiCpuSaturationSuspectedAttackEscalation
+            expr: |
+              (
+                sum(rate(container_cpu_usage_seconds_total{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }[3m]))
+                /
+                sum(kube_pod_container_resource_limits{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine",
+                  resource="cpu"
+                })
+              ) > 0.90
+            for: 8m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: slack
+            annotations:
+              summary: "[ESCALACIÓN] CPU saturada sin mitigar"
+              description: "CPU > 90% del límite durante 8+ minutos."
+
+          # --- Señales HTTP (requieren imagen API con /metrics instrumentado) ---
+
+          - alert: FraudApiTrafficFlood
+            expr: |
+              sum(rate(http_requests_total{
+                job="fraud-api",
+                handler!="/metrics",
+                handler!="/healthz"
+              }[2m])) > 20
+            for: 2m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Posible DDoS: tráfico anormal en API Fraud"
+              description: "Más de 20 peticiones/s sostenidas durante 2 minutos (excluye health y metrics)."
+
+          - alert: FraudApiTrafficFloodEscalation
+            expr: |
+              sum(rate(http_requests_total{
+                job="fraud-api",
+                handler!="/metrics",
+                handler!="/healthz"
+              }[2m])) > 20
+            for: 5m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: slack
+            annotations:
+              summary: "[ESCALACIÓN] Flood de tráfico continúa"
+              description: "El pico de tráfico persiste 5+ minutos."
+
+          - alert: FraudApiSuspiciousClientErrors
+            expr: |
+              sum(rate(http_requests_total{job="fraud-api", status=~"4.."}[3m])) > 1
+            for: 3m
+            labels:
+              severity: warning
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Posible escaneo o fuzzing (4xx elevados)"
+              description: "Tasa alta de respuestas 4xx. Puede ser escaneo de rutas, payloads inválidos o intentos de bypass."
+
+          - alert: FraudApiServerErrorSpike
+            expr: |
+              sum(rate(http_requests_total{job="fraud-api", status=~"5.."}[3m])) > 0.3
+            for: 2m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Pico de errores 5xx en API Fraud"
+              description: "Errores de servidor elevados. Posible explotación de vulnerabilidades o sobrecarga maliciosa."
+
+          - alert: FraudApiMaliciousPayloadRate
+            expr: |
+              sum(rate(fraud_api_malicious_payload_total{job="fraud-api"}[5m])) > 0.5
+            for: 2m
+            labels:
+              severity: warning
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Payloads maliciosos o inválidos en /predict"
+              description: "Alta tasa de peticiones rechazadas por validación (422). Posible inyección o fuzzing automatizado."
+
+          - alert: FraudApiPredictEndpointAbuse
+            expr: |
+              sum(rate(http_requests_total{job="fraud-api", handler="/predict"}[2m])) > 15
+            for: 2m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              category: security
+              channel: telegram
+            annotations:
+              summary: "Abuso del endpoint /predict"
+              description: "Más de 15 inferencias/s en /predict. Posible abuso del modelo o ataque de coste computacional."
+
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -126,8 +325,9 @@ data:
             parse_mode: HTML
             send_resolved: true
             message: |
-              {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} <b>{{ .Status | toUpper }}</b>
+              {{ if eq .Status "firing" }}{{ if eq .CommonLabels.category "security" }}🛡️{{ else }}🚨{{ end }}{{ else }}✅{{ end }} <b>{{ .Status | toUpper }}</b>
               <b>{{ .CommonLabels.alertname }}</b>
+              {{ if eq .CommonLabels.category "security" }}<i>[SEGURIDAD]</i>{{ end }}
               {{ range .Alerts }}
               • {{ .Annotations.summary }}
               {{ .Annotations.description }}
