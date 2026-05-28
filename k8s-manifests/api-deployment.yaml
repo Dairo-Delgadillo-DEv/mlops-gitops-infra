@@ -12,7 +12,7 @@ metadata:
     app: fraud-api
     tier: inference
 spec:
-  replicas: 2 # Alta disponibilidad: 2 pods corriendo en paralelo
+  replicas: 2
   selector:
     matchLabels:
       app: fraud-api
@@ -23,12 +23,10 @@ spec:
     spec:
       containers:
       - name: api-engine
-        # REEMPLAZA 'tu-usuario-docker' por tu usuario real de Docker Hub
         image: tu-usuario-docker/mlops-fraud-api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
-        # Recursos asignados para evitar que tiren el nodo de KinD (Pure Ops Estricto)
         resources:
           limits:
             cpu: "500m"
@@ -36,7 +34,6 @@ spec:
           requests:
             cpu: "200m"
             memory: "256Mi"
-        # Probes nativos acoplados a los endpoints que programaste en FastAPI
         livenessProbe:
           httpGet:
             path: /healthz
