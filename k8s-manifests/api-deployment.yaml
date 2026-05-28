@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
       - name: api-engine
-        image: tu-usuario-docker/mlops-fraud-api:latest
+        image: codemysteri/mlops-fraud-api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
