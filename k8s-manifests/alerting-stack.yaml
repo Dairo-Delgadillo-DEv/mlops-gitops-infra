@@ -1,0 +1,358 @@
+# Credenciales: copia alertmanager-secrets.example.yaml → alertmanager-secrets.yaml,
+# rellena valores reales y aplica (no subas el .yaml con secretos a Git).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: mlops-monitoring
+data:
+  fraud-api.rules.yml: |
+    groups:
+      - name: fraud-api-alerts
+        rules:
+          # Réplicas disponibles = 0 → Telegram a los 2m
+          - alert: FraudApiNoReplicasAvailable
+            expr: |
+              kube_deployment_status_replicas_available{
+                namespace="mlops-production",
+                deployment="mlops-fraud-api"
+              } == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              channel: telegram
+            annotations:
+              summary: "API Fraud sin réplicas disponibles"
+              description: "El Deployment mlops-fraud-api lleva 2+ minutos con 0 réplicas listas en mlops-production."
+
+          # Misma condición → Slack si sigue sin acción (5m total)
+          - alert: FraudApiNoReplicasAvailableEscalation
+            expr: |
+              kube_deployment_status_replicas_available{
+                namespace="mlops-production",
+                deployment="mlops-fraud-api"
+              } == 0
+            for: 5m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              channel: slack
+            annotations:
+              summary: "[ESCALACIÓN] API Fraud sigue sin réplicas"
+              description: "Sin réplicas disponibles durante 5+ minutos. Revisar el recordatorio de Telegram."
+
+          # RAM > 85% del límite (512Mi) durante 5m → Telegram
+          - alert: FraudApiMemoryAbove85Percent
+            expr: |
+              (
+                container_memory_working_set_bytes{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }
+                /
+                container_spec_memory_limit_bytes{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }
+              ) > 0.85
+            for: 5m
+            labels:
+              severity: warning
+              service: mlops-fraud-api
+              channel: telegram
+            annotations:
+              summary: "API Fraud: memoria RAM por encima del 85%"
+              description: "Uso de memoria > 85% del límite del contenedor api-engine durante más de 5 minutos."
+
+          # Misma condición → Slack a los 10m (5m después del primer aviso)
+          - alert: FraudApiMemoryAbove85PercentEscalation
+            expr: |
+              (
+                container_memory_working_set_bytes{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }
+                /
+                container_spec_memory_limit_bytes{
+                  namespace="mlops-production",
+                  pod=~"mlops-fraud-api.*",
+                  container="api-engine"
+                }
+              ) > 0.85
+            for: 10m
+            labels:
+              severity: critical
+              service: mlops-fraud-api
+              channel: slack
+            annotations:
+              summary: "[ESCALACIÓN] API Fraud: memoria crítica sin resolver"
+              description: "Memoria > 85% del límite durante 10+ minutos. Escalación a Slack por falta de acción tras Telegram."
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alertmanager-config
+  namespace: mlops-monitoring
+data:
+  alertmanager.yml: |
+    global:
+      resolve_timeout: 5m
+
+    route:
+      receiver: telegram
+      group_by: ['alertname', 'namespace', 'service']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 5m
+      routes:
+        - receiver: slack
+          matchers:
+            - channel = slack
+          group_wait: 10s
+          repeat_interval: 30m
+          continue: false
+
+    receivers:
+      - name: telegram
+        telegram_configs:
+          - bot_token_file: /etc/alertmanager/secrets/telegram_bot_token
+            chat_id: __TELEGRAM_CHAT_ID__
+            parse_mode: HTML
+            send_resolved: true
+            message: |
+              {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} <b>{{ .Status | toUpper }}</b>
+              <b>{{ .CommonLabels.alertname }}</b>
+              {{ range .Alerts }}
+              • {{ .Annotations.summary }}
+              {{ .Annotations.description }}
+              {{ end }}
+
+      - name: slack
+        slack_configs:
+          - api_url_file: /etc/alertmanager/secrets/slack_webhook_url
+            send_resolved: true
+            title: '{{ if eq .Status "firing" }}[ESCALACIÓN]{{ else }}[RESUELTO]{{ end }} {{ .CommonLabels.alertname }}'
+            text: |-
+              {{ range .Alerts }}
+              *{{ .Annotations.summary }}*
+              {{ .Annotations.description }}
+              {{ end }}
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: mlops-monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-state-metrics
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - secrets
+      - nodes
+      - pods
+      - services
+      - resourcequotas
+      - replicationcontrollers
+      - limitranges
+      - persistentvolumeclaims
+      - persistentvolumes
+      - namespaces
+      - endpoints
+    verbs: ["list", "watch"]
+  - apiGroups: ["apps"]
+    resources:
+      - statefulsets
+      - daemonsets
+      - deployments
+      - replicasets
+    verbs: ["list", "watch"]
+  - apiGroups: ["batch"]
+    resources:
+      - cronjobs
+      - jobs
+    verbs: ["list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources:
+      - horizontalpodautoscalers
+    verbs: ["list", "watch"]
+  - apiGroups: ["policy"]
+    resources:
+      - poddisruptionbudgets
+    verbs: ["list", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - certificatesigningrequests
+    verbs: ["list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources:
+      - storageclasses
+      - volumeattachments
+    verbs: ["list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources:
+      - mutatingwebhookconfigurations
+      - validatingwebhookconfigurations
+    verbs: ["list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources:
+      - networkpolicies
+      - ingressclasses
+      - ingresses
+    verbs: ["list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources:
+      - leases
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-state-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: mlops-monitoring
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: mlops-monitoring
+  labels:
+    app: kube-state-metrics
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-state-metrics
+  template:
+    metadata:
+      labels:
+        app: kube-state-metrics
+    spec:
+      serviceAccountName: kube-state-metrics
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.10.1
+          ports:
+            - name: http-metrics
+              containerPort: 8080
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: mlops-monitoring
+  labels:
+    app: kube-state-metrics
+spec:
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: http-metrics
+  selector:
+    app: kube-state-metrics
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alertmanager
+  namespace: mlops-monitoring
+  labels:
+    app: alertmanager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alertmanager
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      initContainers:
+        - name: render-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              CHAT_ID=$(tr -d '\n\r' < /secrets/telegram_chat_id)
+              sed "s/__TELEGRAM_CHAT_ID__/${CHAT_ID}/g" /config-template/alertmanager.yml > /config-runtime/alertmanager.yml
+          volumeMounts:
+            - name: config-template
+              mountPath: /config-template
+            - name: config-runtime
+              mountPath: /config-runtime
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+      containers:
+        - name: alertmanager
+          image: prom/alertmanager:v0.26.0
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - containerPort: 9093
+          volumeMounts:
+            - name: config-runtime
+              mountPath: /etc/alertmanager
+            - name: secrets
+              mountPath: /etc/alertmanager/secrets
+              readOnly: true
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+      volumes:
+        - name: config-template
+          configMap:
+            name: alertmanager-config
+        - name: config-runtime
+          emptyDir: {}
+        - name: secrets
+          secret:
+            secretName: alertmanager-credentials
+            optional: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alertmanager
+  namespace: mlops-monitoring
+  labels:
+    app: alertmanager
+spec:
+  ports:
+    - name: http
+      port: 9093
+      targetPort: 9093
+  selector:
+    app: alertmanager

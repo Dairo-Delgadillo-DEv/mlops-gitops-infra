@@ -1,0 +1,2 @@
+# Secretos de Alertmanager (Telegram / Slack)
+k8s-manifests/alertmanager-secrets.yaml
