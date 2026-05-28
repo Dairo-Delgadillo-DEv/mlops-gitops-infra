@@ -36,7 +36,7 @@ spec:
       volumes: 
       - name: config-volume
         configMap:
-          name: prometheus-server-config
+          name: prometheus-server-conf
 ---
 apiVersion: v1
 kind: Service
