@@ -25,7 +25,7 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    # 4. Construir la imagen usando tu Dockerfile Multi-Stage y subirla (Push) a la nube
+    # 4. Construir la imagen usando tu Dockerfile Multi-Stage y subirla (Push) a la nub
     - name: Build and Push Multi-Stage Production Image
       uses: docker/build-push-action@v5
       with:
