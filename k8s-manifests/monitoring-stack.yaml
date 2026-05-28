@@ -55,7 +55,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: prometheus-svc
+  name: prometheus-core
   namespace: mlops-monitoring
 spec:
   type: ClusterIP
