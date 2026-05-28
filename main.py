@@ -1,7 +1,10 @@
 import pickle
 import numpy as np
-from fastapi import FastAPI, HTTPException, status
-from prometheus_client import make_asgi_app
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from prometheus_client import Counter, make_asgi_app
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel, Field
 
 # 1. Definir el esquema de entrada con validación estricta de datos (Estilo Pure Ops)
@@ -24,7 +27,20 @@ try:
 except Exception as e:
     raise RuntimeError(f"Error crítico al cargar el artefacto del modelo en {MODEL_PATH}: {str(e)}")
 
+MALICIOUS_PAYLOAD_COUNTER = Counter(
+    "fraud_api_malicious_payload_total",
+    "Peticiones rechazadas por validación (posible fuzzing o inyección)",
+    ["endpoint"],
+)
+
 app.mount("/metrics", make_asgi_app())
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_attack_handler(request: Request, exc: RequestValidationError):
+    MALICIOUS_PAYLOAD_COUNTER.labels(endpoint=request.url.path).inc()
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": exc.errors()})
+
 
 # ---------------------------------------------------------
 # ENDPOINTS OPERATIVOS (Para el Orquestador de Kubernetes)
@@ -71,3 +87,10 @@ def predict(payload: PredictionInput):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail= f"Execution error during inference runtime: {str(e)}"
         )
+
+
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/metrics", "/healthz", "/docs", "/openapi.json", "/redoc"],
+).instrument(app)
