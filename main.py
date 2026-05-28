@@ -1,6 +1,7 @@
 import pickle
 import numpy as np
 from fastapi import FastAPI, HTTPException, status
+from prometheus_client import make_asgi_app
 from pydantic import BaseModel, Field
 
 # 1. Definir el esquema de entrada con validación estricta de datos (Estilo Pure Ops)
@@ -22,6 +23,8 @@ try:
         model = pickle.load(f)
 except Exception as e:
     raise RuntimeError(f"Error crítico al cargar el artefacto del modelo en {MODEL_PATH}: {str(e)}")
+
+app.mount("/metrics", make_asgi_app())
 
 # ---------------------------------------------------------
 # ENDPOINTS OPERATIVOS (Para el Orquestador de Kubernetes)
