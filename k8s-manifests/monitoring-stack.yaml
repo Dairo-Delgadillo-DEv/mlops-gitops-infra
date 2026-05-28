@@ -33,10 +33,10 @@ spec:
           requests:
             cpu: "200m"
             memory: "256Mi"
-      volumes: 
-      - name: config-volume
-        configMap:
-          name: prometheus-server-conf
+    volumes: 
+    - name: config-volume
+      configMap:
+        name: prometheus-server-conf
 ---
 apiVersion: v1
 kind: Service
