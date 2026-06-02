@@ -1,6 +1,6 @@
 # MLOps GitOps Infra — Fraud Detection API
 
-Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)**, alertas (Alertmanager) y notificaciones (Telegram + Slack).
+Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)**, **alertas (Telegram + Slack)** y **seguridad**.
 
 ## Arquitectura
 
@@ -103,6 +103,8 @@ Para visualizar este panel en Grafana:
 2. Usa la consulta PromQL de **Memoria (MB)** anterior
 3. Configura alertas si la memoria supera el 85% del límite (512Mi)
 
+![API Fraud - Memory Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-memory-usage.png)
+
 ### Uso de CPU
 
 Para visualizar este panel en Grafana:
@@ -110,12 +112,12 @@ Para visualizar este panel en Grafana:
 2. Usa la consulta PromQL de **CPU (%)** anterior
 3. Configura alertas si el uso de CPU supera el 90%
 
-> **Nota sobre imágenes:** Para capturar dashboards de Grafana y agregarlos a este README:
-> 1. En Grafana, ve a tu dashboard
-> 2. Haz clic en el panel
-> 3. Usa la opción "Share" → "Link"
-> 4. O toma una captura de pantalla (PNG) y súbela a GitHub (arrastra a GitHub durante la edición del README)
-> 5. Reemplaza las URLs placeholder con las que genere GitHub automáticamente
+![API Fraud - CPU Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-cpu-usage.png)
+
+> **Nota sobre imágenes:** Las imágenes anteriores son placeholders. Para agregar capturas reales:
+> 1. Sube las imágenes PNG a tu repositorio en una carpeta como `docs/images/`
+> 2. Reemplaza las URLs `PLACEHOLDER` con las rutas reales
+> 3. O durante la edición del README en GitHub, arrastra y suelta las imágenes directamente
 
 ## Alertas configuradas
 
