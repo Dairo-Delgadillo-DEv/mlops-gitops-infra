@@ -1,6 +1,6 @@
 # MLOps GitOps Infra — Fraud Detection API
 
-Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)**, y **alertas de seguridad**.
+Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)**, alertas (Alertmanager) y notificaciones (Telegram + Slack).
 
 ## Arquitectura
 
@@ -84,24 +84,38 @@ container_memory_working_set_bytes{
 **CPU (%):**
 
 ```promql
-sum(
-  rate(container_cpu_usage_seconds_total{
-    namespace="mlops-production",
-    pod=~"mlops-fraud-api.*",
-    container="api-engine"
-  }[5m])
-) by (pod) * 100
+sum(rate(container_cpu_usage_seconds_total{
+  namespace="mlops-production",
+  pod=~"mlops-fraud-api.*",
+  container="api-engine"
+}[5m])) by (pod) * 100
 ```
+
+> **Nota:** Si `container_cpu_usage_seconds_total` no está disponible en tu cluster, usa esta alternativa con métricas de cAdvisor:
+> ```promql
+> rate(container_cpu_cfs_throttled_seconds_total{namespace="mlops-production", pod=~"mlops-fraud-api.*"}[5m]) * 100
+> ```
 
 ### Uso de memoria RAM
 
-![API Fraud - Memory Usage](https://github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/user-id/grafana-memory-usage.png)
+Para visualizar este panel en Grafana:
+1. Crea un nuevo dashboard o añade un panel
+2. Usa la consulta PromQL de **Memoria (MB)** anterior
+3. Configura alertas si la memoria supera el 85% del límite (512Mi)
 
 ### Uso de CPU
 
-![API Fraud - CPU Usage](https://github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/user-id/grafana-cpu-usage.png)
+Para visualizar este panel en Grafana:
+1. Crea un nuevo dashboard o añade un panel
+2. Usa la consulta PromQL de **CPU (%)** anterior
+3. Configura alertas si el uso de CPU supera el 90%
 
-> **Imágenes sin archivos en el repo:** en GitHub, edita este README, arrastra cada captura de Grafana y sustituye las URLs con las que genere GitHub (`github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/...`).
+> **Nota sobre imágenes:** Para capturar dashboards de Grafana y agregarlos a este README:
+> 1. En Grafana, ve a tu dashboard
+> 2. Haz clic en el panel
+> 3. Usa la opción "Share" → "Link"
+> 4. O toma una captura de pantalla (PNG) y súbela a GitHub (arrastra a GitHub durante la edición del README)
+> 5. Reemplaza las URLs placeholder con las que genere GitHub automáticamente
 
 ## Alertas configuradas
 
