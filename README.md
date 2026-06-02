@@ -1,6 +1,6 @@
 # MLOps GitOps Infra — Fraud Detection API
 
-Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)** y **alertas operativas y de seguridad** (Alertmanager → Telegram / Slack).
+Repositorio de infraestructura y aplicación para desplegar una **API de detección de fraude** (scikit-learn + FastAPI) en Kubernetes, con **GitOps (ArgoCD)**, **observabilidad (Prometheus + Grafana)**, y **alertas de seguridad**.
 
 ## Arquitectura
 
@@ -95,13 +95,13 @@ sum(
 
 ### Uso de memoria RAM
 
-![API Fraud - Memory Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-memory-usage.png)
+![API Fraud - Memory Usage](https://github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/user-id/grafana-memory-usage.png)
 
 ### Uso de CPU
 
-![API Fraud - CPU Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-cpu-usage.png)
+![API Fraud - CPU Usage](https://github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/user-id/grafana-cpu-usage.png)
 
-> **Imágenes sin archivos en el repo:** en GitHub, edita este README, arrastra cada captura de Grafana y sustituye las URLs `PLACEHOLDER` por las que genere GitHub (`user-images.githubusercontent.com/...`). Así se ven en el README sin commitear `.png` en el repositorio.
+> **Imágenes sin archivos en el repo:** en GitHub, edita este README, arrastra cada captura de Grafana y sustituye las URLs con las que genere GitHub (`github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/assets/...`).
 
 ## Alertas configuradas
 
