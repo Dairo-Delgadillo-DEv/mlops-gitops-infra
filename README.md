@@ -103,7 +103,7 @@ Para visualizar este panel en Grafana:
 2. Usa la consulta PromQL de **Memoria (MB)** anterior
 3. Configura alertas si la memoria supera el 85% del límite (512Mi)
 
-![API Fraud - Memory Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-memory-usage.png)
+**[Captura de pantalla: Dashboard Grafana - Memoria]** *(Imagen pendiente - ver instrucciones abajo)*
 
 ### Uso de CPU
 
@@ -112,12 +112,31 @@ Para visualizar este panel en Grafana:
 2. Usa la consulta PromQL de **CPU (%)** anterior
 3. Configura alertas si el uso de CPU supera el 90%
 
-![API Fraud - CPU Usage](https://user-images.githubusercontent.com/PLACEHOLDER/grafana-cpu-usage.png)
+**[Captura de pantalla: Dashboard Grafana - CPU]** *(Imagen pendiente - ver instrucciones abajo)*
 
-> **Nota sobre imágenes:** Las imágenes anteriores son placeholders. Para agregar capturas reales:
-> 1. Sube las imágenes PNG a tu repositorio en una carpeta como `docs/images/`
-> 2. Reemplaza las URLs `PLACEHOLDER` con las rutas reales
-> 3. O durante la edición del README en GitHub, arrastra y suelta las imágenes directamente
+### Cómo agregar capturas de pantalla
+
+**Opción 1: Edición en línea (recomendado)**
+1. Abre este README en modo edición: https://github.com/Dairo-Delgadillo-DEv/mlops-gitops-infra/edit/main/README.md
+2. Posiciona el cursor donde dice "Imagen pendiente"
+3. Arrastra y suelta tu captura PNG directamente
+4. GitHub generará la URL automáticamente
+5. Guarda los cambios con un commit
+
+**Opción 2: Subir a carpeta de imágenes**
+```bash
+mkdir -p docs/images
+# Copia tus PNGs aquí
+git add docs/images/
+git commit -m "docs: agregar capturas de Grafana"
+git push
+```
+
+Luego reemplaza `[Captura de pantalla...]` con:
+```markdown
+![Uso de memoria RAM](docs/images/grafana-memory-usage.png)
+![Uso de CPU](docs/images/grafana-cpu-usage.png)
+```
 
 ## Alertas configuradas
 
